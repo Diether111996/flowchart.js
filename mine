@@ -1,0 +1,273 @@
+from tkinter import *
+from tkinter import messagebox
+from tkinter import ttk
+from openpyxl import Workbook, load_workbook
+import os
+from datetime import datetime
+import platform
+
+# Function to show the loading screen
+def show_loading():
+    loading_screen = Toplevel(root)
+    loading_screen.title("Loading")
+    loading_screen.geometry("400x200+500+300")
+    loading_screen.configure(bg="lightblue")
+
+    # Label showing the loading message
+    Label(loading_screen, font=('bookman old style', 18, 'bold'), text="Loading Payroll System...", fg="red", bg="lightblue").pack(pady=30)
+
+    # Create a progress bar
+    progress = ttk.Progressbar(loading_screen, orient=HORIZONTAL, length=300, mode='indeterminate')
+    progress.pack(pady=10)
+    progress.start()
+
+
+    loading_screen.after(6000, lambda: [loading_screen.destroy(), show_main_app()])
+
+# Function to show the main application
+def show_main_app():
+    root.deiconify()
+    root.title("Payroll Management System")
+    root.geometry("1350x750+0+0")
+
+# Initialize the main window
+root = Tk()
+root.withdraw()
+
+# Global Variables for employee data
+LastName = StringVar()
+FirstName = StringVar()
+MiddleName = StringVar()
+Suffix = StringVar()
+Gender = StringVar()
+Basic = StringVar()
+GrossPay = StringVar()
+Tax = StringVar()
+NetPay = StringVar()
+PhilHealth = StringVar()
+PagIbig = StringVar()
+GSIS = StringVar()
+OtherDeductions = StringVar()
+ReceiptText = StringVar()
+
+# Function to calculate salary details
+def MonthlySalary():
+    try:
+        # Parse Inputs
+        BS = float(Basic.get()) if Basic.get() else 0
+        if BS == 0:
+            messagebox.showerror("Error", "Basic Salary cannot be zero or empty.")
+            return
+        # Get current date and time
+        current_datetime = datetime.now ()
+        formatted_datetime = current_datetime.strftime ("%Y-%m-%d %H:%M:%S")
+
+        # Calculations for deductions
+        MTax = BS * 0.3
+        MPhilHealth = BS * 0.035
+        MPagIbig = BS * 0.02
+        MGSIS = BS * 0.09
+        MOtherDeductions = 500
+
+        TotalDeductions = MTax + MPhilHealth + MPagIbig + MGSIS + MOtherDeductions
+        NetPayCalc = BS - TotalDeductions
+
+        # Update the displayed salary details
+        GrossPay.set(f"₱{BS:.2f}")
+        Tax.set(f"₱{MTax:.2f}")
+        PhilHealth.set(f"₱{MPhilHealth:.2f}")
+        PagIbig.set(f"₱{MPagIbig:.2f}")
+        GSIS.set(f"₱{MGSIS:.2f}")
+        OtherDeductions.set(f"₱{MOtherDeductions:.2f}")
+        NetPay.set(f"₱{NetPayCalc:.2f}")
+
+        # Generate the receipt
+        receipt = (
+            "------------------- PAYROLL RECEIPT -------------------\n"
+            f"Date & Time:          {formatted_datetime}\n"
+            f"Employee Name:        {LastName.get()}, {FirstName.get()} {MiddleName.get()} {Suffix.get()}\n"
+            f"Gender:               {Gender.get()}\n"
+            "------------------------------------------------------\n"
+            f"Basic Salary:         ₱{BS:.2f}\n"
+            "------------------------------------------------------\n"
+            f"Gross Pay:            ₱{BS:.2f}\n"
+            "------------------------------------------------------\n"
+            f"Tax (30%):            ₱{MTax:.2f}\n"
+            f"PhilHealth (3.5%):    ₱{MPhilHealth:.2f}\n"
+            f"Pag-IBIG (2%):        ₱{MPagIbig:.2f}\n"
+            f"GSIS (9%):            ₱{MGSIS:.2f}\n"
+            f"Other Deductions:     ₱{MOtherDeductions:.2f}\n"
+            "------------------------------------------------------\n"
+            f"Total Deductions:     ₱{TotalDeductions:.2f}\n"
+            "------------------------------------------------------\n"
+            f"Net Pay:              ₱{NetPayCalc:.2f}\n"
+        )
+
+        ReceiptText.set(receipt)
+        ReceiptBox.delete(1.0, END)
+        ReceiptBox.insert(END, receipt)
+
+    except ValueError:
+        messagebox.showerror("Error", "Please enter a valid number.")
+        Reset()
+
+# Function to reset the fields
+def Reset():
+    LastName.set("")
+    FirstName.set("")
+    MiddleName.set("")
+    Suffix.set("")
+    Gender.set("")
+    Basic.set("")
+    GrossPay.set("")
+    Tax.set("")
+    PhilHealth.set("")
+    PagIbig.set("")
+    GSIS.set("")
+    OtherDeductions.set("")
+    NetPay.set("")
+    ReceiptText.set("")
+    ReceiptBox.delete(1.0, END)
+    ReceiptBox.insert(END, "Click 'Calculate Salary' to generate the receipt.")
+
+# Function to confirm exit
+def ExitApp():
+    if messagebox.askyesno("Exit", "Are you sure you want to exit?"):
+        root.destroy()
+
+# Function to print data to Excel
+def PrintToExcel():
+    employee_name = f"{LastName.get()}, {FirstName.get()} {MiddleName.get()} {Suffix.get()}"
+    data = [
+        employee_name,
+        Basic.get(),
+        GrossPay.get(),
+        Tax.get(),
+        PhilHealth.get(),
+        PagIbig.get(),
+        GSIS.get(),
+        OtherDeductions.get(),
+        NetPay.get(),
+        Gender.get()
+    ]
+
+    file_name = "Payroll_Database.xlsx"
+
+    # Create a new workbook if not exists
+    if not os.path.exists(file_name):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Payroll Records"
+        ws.append([
+            "Employee Name",
+            "Basic Salary",
+            "Gross Pay",
+            "Tax",
+            "PhilHealth",
+            "Pag-IBIG",
+            "GSIS",
+            "Other Deductions",
+            "Net Pay",
+            "Gender",
+        ])
+        wb.save(file_name)
+
+    # Append data to the existing Excel file
+    try:
+        wb = load_workbook(file_name)
+        ws = wb.active
+        ws.append(data)
+        wb.save(file_name)
+
+        # Open the Excel file
+        if platform.system() == "Windows":
+            os.system(f'start excel "{file_name}"')
+        elif platform.system() == "Darwin":
+            os.system(f'open -a "Microsoft Excel" "{file_name}"')
+        else:
+            os.system(f'libreoffice --calc "{file_name}"')
+
+        messagebox.showinfo("Success", "Payroll data successfully saved and opened in MS Excel.")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to save data to Excel. {e}")
+
+# Main UI Setup
+MainFrame = Frame(root, bg='lightblue')
+MainFrame.pack()
+
+TitleFrame = Frame(MainFrame, bd=10, width=1350, bg='gray', relief=RIDGE)
+TitleFrame.pack(side=TOP)
+
+Label(TitleFrame, font=('bookman old style', 40, 'bold'), bg='gray', text="Payroll Management System").grid(row=0, column=0)
+
+DataFrame = Frame(MainFrame, bd=10, width=1300, height=500, relief=RIDGE)
+DataFrame.pack(side=TOP)
+
+InsideLFR = LabelFrame(DataFrame, bd=20, width=1350, height=300, font=('arial', 12, 'bold'), text="Employee Info")
+InsideLFR.pack(side=LEFT)
+
+InsideRFR = LabelFrame(DataFrame, bd=20, width=1350, height=300, font=('arial', 12, 'bold'), text="Salary Details")
+InsideRFR.pack(side=RIGHT)
+
+ButtonFrame = Frame(MainFrame, bd=20, width=1350, height=50, relief=RIDGE)
+ButtonFrame.pack(side=BOTTOM)
+
+ReceiptFrame = Frame(MainFrame, bd=20, width=650, height=325, relief=RIDGE)
+ReceiptFrame.pack(side=TOP)
+
+# Left Panel - Employee Info
+Label(InsideLFR, font=('arial', 12, 'bold'), text="Last Name", bd=10, anchor="w").grid(row=0, column=0)
+Entry(InsideLFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=LastName).grid(row=0, column=1)
+
+Label(InsideLFR, font=('arial', 12, 'bold'), text="First Name", bd=10, anchor="w").grid(row=1, column=0)
+Entry(InsideLFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=FirstName).grid(row=1, column=1)
+
+Label(InsideLFR, font=('arial', 12, 'bold'), text="Middle Name", bd=10, anchor="w").grid(row=2, column=0)
+Entry(InsideLFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=MiddleName).grid(row=2, column=1)
+
+Label(InsideLFR, font=('arial', 12, 'bold'), text="Suffix", bd=10, anchor="w").grid(row=3, column=0)
+Entry(InsideLFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=Suffix).grid(row=3, column=1)
+
+Label(InsideLFR, font=('arial', 12, 'bold'), text="Gender", bd=10, anchor="w").grid(row=4, column=0)
+ttk.Combobox(InsideLFR, font=('arial', 12, 'bold'), width=15, state="readonly", textvariable=Gender, values=("Male", "Female")).grid(row=4, column=1)
+
+Label(InsideLFR, font=('arial', 12, 'bold'), text="Basic Salary", bd=10, anchor="w").grid(row=5, column=0)
+Entry(InsideLFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=Basic).grid(row=5, column=1)
+
+# Right Panel - Salary Details
+Label(InsideRFR, font=('arial', 12, 'bold'), text="Gross Pay", bd=10, anchor="w").grid(row=0, column=0)
+Entry(InsideRFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=GrossPay, state="readonly").grid(row=0, column=1)
+
+Label(InsideRFR, font=('arial', 12, 'bold'), text="Tax", bd=10, anchor="w").grid(row=1, column=0)
+Entry(InsideRFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=Tax, state="readonly").grid(row=1, column=1)
+
+Label(InsideRFR, font=('arial', 12, 'bold'), text="PhilHealth", bd=10, anchor="w").grid(row=2, column=0)
+Entry(InsideRFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=PhilHealth, state="readonly").grid(row=2, column=1)
+
+Label(InsideRFR, font=('arial', 12, 'bold'), text="Pag-Ibig", bd=10, anchor="w").grid(row=3, column=0)
+Entry(InsideRFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=PagIbig, state="readonly").grid(row=3, column=1)
+
+Label(InsideRFR, font=('arial', 12, 'bold'), text="GSIS", bd=10, anchor="w").grid(row=4, column=0)
+Entry(InsideRFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=GSIS, state="readonly").grid(row=4, column=1)
+
+Label(InsideRFR, font=('arial', 12, 'bold'), text="Other Deductions", bd=10, anchor="w").grid(row=5, column=0)
+Entry(InsideRFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=OtherDeductions, state="readonly").grid(row=5, column=1)
+
+Label(InsideRFR, font=('arial', 12, 'bold'), text="Net Pay", bd=10, anchor="w").grid(row=6, column=0)
+Entry(InsideRFR, font=('arial', 12, 'bold'), bd=10, width=18, textvariable=NetPay, state="readonly").grid(row=6, column=1)
+
+# Buttons
+Button(ButtonFrame, font=('arial', 12, 'bold'), text="Calculate Salary", width=18, bd=15, bg='gray', command=MonthlySalary).grid(row=0, column=0, padx=10)
+Button(ButtonFrame, font=('arial', 12, 'bold'), text="Reset", width=18, bd=15, bg='gray', command=Reset).grid(row=0, column=1, padx=10)
+Button(ButtonFrame, font=('arial', 12, 'bold'), text="Print to Excel", width=18, bd=15, bg='gray', command=PrintToExcel).grid(row=0, column=2, padx=10)
+Button(ButtonFrame, font=('arial', 12, 'bold'), text="Exit", width=18, bd=15, bg='gray', command=ExitApp).grid(row=0, column=3, padx=10)
+
+# Receipt Box
+ReceiptBox = Text(ReceiptFrame, width=95, height=50, font=('bookman old style', 12, 'bold'))
+ReceiptBox.pack()
+
+
+show_loading()
+
+
+root.mainloop()
